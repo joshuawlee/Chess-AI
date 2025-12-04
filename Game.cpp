@@ -1,119 +1,185 @@
 #include "Game.h"
 
-Game::Game() : ai(3), mode(GameMode::MainMenu), running(true), 
-               gameOver(false), selectedRow(-1), selectedCol(-1), 
-               pieceSelected(false) {}
-
-void Game::run() {
-    // Game logic handled by main loop in main.cpp
-}
-
-bool Game::isRunning() const {
-    return running;
-}
-
-Board& Game::getBoard() {
-    return board;
-}
-
-GameMode Game::getMode() const {
-    return mode;
-}
-
-void Game::selectMode(GameMode newMode) {
-    mode = newMode;
-    board = Board(); // Reset board
+Game::Game() {
+    mode = GameMode::MainMenu;
     gameOver = false;
-    gameResult = "";
-    pieceSelected = false;
     selectedRow = -1;
     selectedCol = -1;
+    pieceSelected = false;
 }
 
-void Game::handlePieceSelection(int row, int col) {
-    if(gameOver) return;
+void Game::run() {
+    // SFML 3: VideoMode takes Vector2u
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 800)), "Chess Game");
+    window.setFramerateLimit(60);
+    
+    if (!renderer.loadAssets()) {
+        return; // Failed to load assets
+    }
+    
+    while (window.isOpen()) {
+        handleInput(window);
+        update();
+        render(window);
+    }
+}
 
-    if(!pieceSelected) {
-        // First click - select piece
+void Game::handleInput(sf::RenderWindow& window) {
+    // SFML 3: pollEvent() returns optional<Event>, no parameter
+    while (std::optional<sf::Event> event = window.pollEvent()) {
+        // SFML 3: Use std::holds_alternative to check event type
+        if (event->is<sf::Event::Closed>()) {
+            window.close();
+        }
+        
+        // SFML 3: Check for MouseButtonPressed event
+        if (const auto* mouseButton = event->getIf<sf::Event::MouseButtonPressed>()) {
+            int mouseX = mouseButton->position.x;
+            int mouseY = mouseButton->position.y;
+            
+            if (mode == GameMode::MainMenu) {
+                // Check PVP button (250, 350, 300x60)
+                if (mouseX >= 250 && mouseX <= 550 && mouseY >= 350 && mouseY <= 410) {
+                    selectGameMode(GameMode::PVP);
+                }
+                // Check PVAI button (250, 450, 300x60)
+                else if (mouseX >= 250 && mouseX <= 550 && mouseY >= 450 && mouseY <= 510) {
+                    selectGameMode(GameMode::PVAI);
+                }
+            }
+            else if (mode == GameMode::GameOver) {
+                // Check return button (250, 450, 300x60)
+                if (mouseX >= 250 && mouseX <= 550 && mouseY >= 450 && mouseY <= 510) {
+                    mode = GameMode::MainMenu;
+                }
+            }
+            else if (mode == GameMode::PVP || mode == GameMode::PVAI) {
+                int col = mouseX / Renderer::TILE_SIZE;
+                int row = mouseY / Renderer::TILE_SIZE;
+                
+                if (row >= 0 && row < 8 && col >= 0 && col < 8) {
+                    handleBoardClick(row, col);
+                }
+            }
+        }
+    }
+}
+
+void Game::update() {
+    if (mode == GameMode::PVAI && !gameOver && !board.whiteToMove) {
+        handleAITurn();
+    }
+    
+    if ((mode == GameMode::PVP || mode == GameMode::PVAI) && !gameOver) {
+        checkGameEndState();
+    }
+}
+
+void Game::render(sf::RenderWindow& window) {
+    window.clear();
+    
+    if (mode == GameMode::MainMenu) {
+        renderer.renderMainMenu(window);
+    }
+    else if (mode == GameMode::GameOver) {
+        renderer.renderGameOver(window, resultText);
+    }
+    else {
+        renderer.renderGame(window, board, selectedRow, selectedCol, pieceSelected);
+    }
+    
+    window.display();
+}
+
+void Game::resetGame() {
+    board = Board();
+    gameOver = false;
+    selectedRow = -1;
+    selectedCol = -1;
+    pieceSelected = false;
+    resultText = "";
+}
+
+void Game::selectGameMode(GameMode newMode) {
+    mode = newMode;
+    resetGame();
+}
+
+void Game::handleBoardClick(int row, int col) {
+    if (gameOver) return;
+    
+    // PVAI mode: only allow white to move
+    if (mode == GameMode::PVAI && !board.whiteToMove) {
+        return;
+    }
+    
+    if (!pieceSelected) {
+        // Select a piece
         Piece piece = board.getPiece(row, col);
         PieceColor currentColor = board.whiteToMove ? PieceColor::White : PieceColor::Black;
         
-        if(piece.type != PieceType::None && piece.color == currentColor) {
+        if (!piece.isEmpty() && piece.color == currentColor) {
             selectedRow = row;
             selectedCol = col;
             pieceSelected = true;
         }
-    } else {
-        // Second click - try to move
-        Move attemptedMove;
-        attemptedMove.startRow = selectedRow;
-        attemptedMove.startCol = selectedCol;
-        attemptedMove.endRow = row;
-        attemptedMove.endCol = col;
+    }
+    else {
+        // Try to move the selected piece
+        Move attemptedMove(selectedRow, selectedCol, row, col);
         attemptedMove.movedPiece = board.getPiece(selectedRow, selectedCol);
         attemptedMove.capturedPiece = board.getPiece(row, col);
-        attemptedMove.isPromotion = false;
-        attemptedMove.isCastle = false;
-        attemptedMove.isEnPassant = false;
-
+        
         // Check if this move is legal
         std::vector<Move> legalMoves = board.generateLegalMoves();
         bool isLegal = false;
         Move legalMove;
-
-        for(const Move& move : legalMoves) {
-            if(move.startRow == attemptedMove.startRow &&
-               move.startCol == attemptedMove.startCol &&
-               move.endRow == attemptedMove.endRow &&
-               move.endCol == attemptedMove.endCol) {
+        
+        for (const Move& move : legalMoves) {
+            if (move.startRow == selectedRow && move.startCol == selectedCol &&
+                move.endRow == row && move.endCol == col) {
                 isLegal = true;
                 legalMove = move;
                 break;
             }
         }
-
-        if(isLegal) {
+        
+        if (isLegal) {
             board.makeMove(legalMove);
-            checkGameEnd();
         }
-
+        
+        // Deselect
         pieceSelected = false;
         selectedRow = -1;
         selectedCol = -1;
     }
 }
 
-void Game::update() {
-    if(mode == GameMode::PVAI && !board.whiteToMove && !gameOver) {
-        // AI's turn (playing as Black)
-        Move aiMove = ai.getBestMove(board);
-        if(aiMove.movedPiece.type != PieceType::None) {
-            board.makeMove(aiMove);
-            checkGameEnd();
+void Game::checkGameEndState() {
+    if (!board.hasLegalMoves()) {
+        gameOver = true;
+        PieceColor currentColor = board.whiteToMove ? PieceColor::White : PieceColor::Black;
+        
+        if (board.inCheck(currentColor)) {
+            // Checkmate
+            if (board.whiteToMove) {
+                resultText = "Black Wins!";
+            } else {
+                resultText = "White Wins!";
+            }
+        } else {
+            // Stalemate
+            resultText = "Draw - Stalemate";
         }
-    }
-}
-
-void Game::checkGameEnd() {
-    if(board.isCheckmate()) {
-        gameOver = true;
-        gameResult = board.whiteToMove ? "Black wins by checkmate!" : "White wins by checkmate!";
-        mode = GameMode::GameOver;
-    } else if(board.isStalemate()) {
-        gameOver = true;
-        gameResult = "Draw by stalemate!";
+        
         mode = GameMode::GameOver;
     }
 }
 
-bool Game::isGameOver() const {
-    return gameOver;
-}
-
-std::string Game::getGameResult() const {
-    return gameResult;
-}
-
-void Game::handleInput() {
-    // Handled in main.cpp with SFML events
+void Game::handleAITurn() {
+    Move aiMove = ai.getBestMove(board, 3);
+    
+    if (aiMove.startRow >= 0 && aiMove.startCol >= 0) {
+        board.makeMove(aiMove);
+    }
 }

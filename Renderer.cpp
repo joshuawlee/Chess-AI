@@ -1,174 +1,189 @@
 #include "Renderer.h"
-#include <iostream>
 
 Renderer::Renderer() {}
 
-Renderer::~Renderer() {}
-
-std::string Renderer::getPieceKey(PieceType type, PieceColor color) {
-    std::string colorStr = (color == PieceColor::White) ? "white" : "black";
-    std::string typeStr;
+bool Renderer::loadAssets() {
+    // Load font (SFML 3.0.2 uses openFromFile instead of loadFromFile)
+    // Try multiple font locations
+    bool fontLoaded = false;
     
-    switch(type) {
-        case PieceType::Pawn: typeStr = "pawn"; break;
-        case PieceType::Knight: typeStr = "knight"; break;
-        case PieceType::Bishop: typeStr = "bishop"; break;
-        case PieceType::Rook: typeStr = "rook"; break;
-        case PieceType::Queen: typeStr = "queen"; break;
-        case PieceType::King: typeStr = "king"; break;
-        default: return "";
+    // Try assets folder first
+    if (font.openFromFile("assets/font.ttf")) {
+        fontLoaded = true;
+    }
+    // Try macOS system fonts
+    else if (font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
+        fontLoaded = true;
+    }
+    else if (font.openFromFile("/System/Library/Fonts/Helvetica.ttc")) {
+        fontLoaded = true;
     }
     
-    return colorStr + "_" + typeStr;
-}
-
-bool Renderer::loadAssets() {
-    // Load piece textures
-    std::vector<std::string> pieceNames = {
-        "white_pawn", "white_knight", "white_bishop", "white_rook", "white_queen", "white_king",
-        "black_pawn", "black_knight", "black_bishop", "black_rook", "black_queen", "black_king"
+    if (!fontLoaded) {
+        return false;
+    }
+    
+    // Load textures
+    std::map<std::string, std::string> pieceMap = {
+        {"wp", "white_pawn"}, {"wn", "white_knight"}, {"wb", "white_bishop"},
+        {"wr", "white_rook"}, {"wq", "white_queen"}, {"wk", "white_king"},
+        {"bp", "black_pawn"}, {"bn", "black_knight"}, {"bb", "black_bishop"},
+        {"br", "black_rook"}, {"bq", "black_queen"}, {"bk", "black_king"}
     };
     
-    for(const std::string& name : pieceNames) {
-        sf::Texture texture;
-        if(!texture.loadFromFile("assets/" + name + ".png")) {
-            std::cerr << "Failed to load texture: assets/" << name << ".png" << std::endl;
-            std::cerr << "Please ensure all piece images are in the assets/ folder." << std::endl;
+    for (const auto& pair : pieceMap) {
+        if (!textures[pair.first].loadFromFile("assets/" + pair.second + ".png")) {
             return false;
         }
-        textures[name] = std::move(texture);
-    }
-    
-    // Try to load font (optional, use default if fails)
-    if(!font.openFromFile("assets/arial.ttf")) {
-        std::cerr << "Warning: Could not load font. Using default font." << std::endl;
-        // SFML will use default font
     }
     
     return true;
 }
 
-void Renderer::renderBoard(sf::RenderWindow& window) {
-    sf::Color lightSquare(240, 217, 181);
-    sf::Color darkSquare(181, 136, 99);
+std::string Renderer::pieceKey(PieceType type, PieceColor color) {
+    std::string key;
     
-    for(int row = 0; row < 8; row++) {
-        for(int col = 0; col < 8; col++) {
-            sf::RectangleShape square(sf::Vector2f(TILE_SIZE, TILE_SIZE));
-            square.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
+    if (color == PieceColor::White) {
+        key = "w";
+    } else if (color == PieceColor::Black) {
+        key = "b";
+    } else {
+        return "";
+    }
+    
+    switch (type) {
+        case PieceType::Pawn: key += "p"; break;
+        case PieceType::Knight: key += "n"; break;
+        case PieceType::Bishop: key += "b"; break;
+        case PieceType::Rook: key += "r"; break;
+        case PieceType::Queen: key += "q"; break;
+        case PieceType::King: key += "k"; break;
+        default: return "";
+    }
+    
+    return key;
+}
+
+void Renderer::drawBoard(sf::RenderWindow& window) {
+    for (int row = 0; row < 8; row++) {
+        for (int col = 0; col < 8; col++) {
+            sf::RectangleShape tile(sf::Vector2f(TILE_SIZE, TILE_SIZE));
+            // SFML 3: setPosition takes Vector2f
+            tile.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
             
-            if((row + col) % 2 == 0) {
-                square.setFillColor(lightSquare);
+            if ((row + col) % 2 == 0) {
+                tile.setFillColor(sf::Color(240, 217, 181)); // Light square
             } else {
-                square.setFillColor(darkSquare);
+                tile.setFillColor(sf::Color(181, 136, 99)); // Dark square
             }
             
-            window.draw(square);
+            window.draw(tile);
         }
     }
 }
 
-void Renderer::renderPieces(sf::RenderWindow& window, const Board& board) {
-    for(int row = 0; row < 8; row++) {
-        for(int col = 0; col < 8; col++) {
-            Piece piece = board.getPiece(row, col);
-            if(piece.type != PieceType::None) {
-                std::string key = getPieceKey(piece.type, piece.color);
-                if(textures.find(key) != textures.end()) {
-                    sf::Sprite sprite(textures[key]);
-                    
-                    // Scale sprite to fit tile
-                    sf::Vector2u textureSize = textures[key].getSize();
-                    float scaleX = (float)TILE_SIZE / textureSize.x;
-                    float scaleY = (float)TILE_SIZE / textureSize.y;
-                    sprite.setScale(sf::Vector2f(scaleX, scaleY));
-                    
-                    sprite.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
-                    window.draw(sprite);
-                }
-            }
+void Renderer::drawPieces(sf::RenderWindow& window, const Board& board) {
+    for (int row = 0; row < 8; row++) {
+        for (int col = 0; col < 8; col++) {
+            Piece piece = board.squares[row][col];
+            if (piece.isEmpty()) continue;
+            
+            std::string key = pieceKey(piece.type, piece.color);
+            if (key.empty() || textures.find(key) == textures.end()) continue;
+            
+            // SFML 3: Sprite must be constructed with texture
+            sf::Sprite sprite(textures[key]);
+            // SFML 3: setPosition takes Vector2f
+            sprite.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
+            
+            // Scale sprite to fit tile
+            sf::Vector2u textureSize = textures[key].getSize();
+            float scaleX = TILE_SIZE / (float)textureSize.x;
+            float scaleY = TILE_SIZE / (float)textureSize.y;
+            // SFML 3: setScale takes Vector2f
+            sprite.setScale(sf::Vector2f(scaleX, scaleY));
+            
+            window.draw(sprite);
         }
     }
 }
 
-void Renderer::renderSelection(sf::RenderWindow& window, int row, int col) {
-    if(row >= 0 && row < 8 && col >= 0 && col < 8) {
-        sf::RectangleShape highlight(sf::Vector2f(TILE_SIZE, TILE_SIZE));
-        highlight.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
-        highlight.setFillColor(sf::Color(255, 255, 0, 100)); // Yellow with transparency
-        window.draw(highlight);
+void Renderer::drawSelection(sf::RenderWindow& window, int row, int col) {
+    if (row < 0 || row >= 8 || col < 0 || col >= 8) return;
+    
+    sf::RectangleShape highlight(sf::Vector2f(TILE_SIZE, TILE_SIZE));
+    // SFML 3: setPosition takes Vector2f
+    highlight.setPosition(sf::Vector2f(col * TILE_SIZE, row * TILE_SIZE));
+    highlight.setFillColor(sf::Color(255, 255, 0, 100)); // Yellow transparent
+    window.draw(highlight);
+}
+
+void Renderer::renderGame(sf::RenderWindow& window, const Board& board,
+                          int selectedRow, int selectedCol, bool pieceSelected) {
+    drawBoard(window);
+    
+    if (pieceSelected) {
+        drawSelection(window, selectedRow, selectedCol);
     }
+    
+    drawPieces(window, board);
 }
 
 void Renderer::renderMainMenu(sf::RenderWindow& window) {
-    window.clear(sf::Color(50, 50, 50));
+    window.clear(sf::Color(40, 40, 40));
     
-    sf::Text title(font);
-    title.setString("C++ Chess MVP");
-    title.setCharacterSize(50);
+    // SFML 3: Text constructor is Text(font, string, characterSize)
+    sf::Text title(font, "Chess Game", 60);
     title.setFillColor(sf::Color::White);
-    title.setPosition(sf::Vector2f(250, 150));
+    sf::FloatRect titleBounds = title.getLocalBounds();
+    // SFML 3: Use size.x instead of width
+    title.setPosition(sf::Vector2f((800 - titleBounds.size.x) / 2, 150));
     window.draw(title);
     
-    sf::Text pvpText(font);
-    pvpText.setString("Press 1 for Player vs Player");
-    pvpText.setCharacterSize(30);
+    // PVP Button
+    sf::RectangleShape pvpButton(sf::Vector2f(300, 60));
+    pvpButton.setPosition(sf::Vector2f(250, 350));
+    pvpButton.setFillColor(sf::Color(70, 130, 180));
+    window.draw(pvpButton);
+    
+    sf::Text pvpText(font, "Player vs Player", 30);
     pvpText.setFillColor(sf::Color::White);
-    pvpText.setPosition(sf::Vector2f(200, 350));
+    sf::FloatRect pvpBounds = pvpText.getLocalBounds();
+    pvpText.setPosition(sf::Vector2f(250 + (300 - pvpBounds.size.x) / 2, 365));
     window.draw(pvpText);
     
-    sf::Text pvaiText(font);
-    pvaiText.setString("Press 2 for Player vs AI");
-    pvaiText.setCharacterSize(30);
+    // PVAI Button
+    sf::RectangleShape pvaiButton(sf::Vector2f(300, 60));
+    pvaiButton.setPosition(sf::Vector2f(250, 450));
+    pvaiButton.setFillColor(sf::Color(70, 130, 180));
+    window.draw(pvaiButton);
+    
+    sf::Text pvaiText(font, "Player vs AI", 30);
     pvaiText.setFillColor(sf::Color::White);
-    pvaiText.setPosition(sf::Vector2f(200, 400));
+    sf::FloatRect pvaiBounds = pvaiText.getLocalBounds();
+    pvaiText.setPosition(sf::Vector2f(250 + (300 - pvaiBounds.size.x) / 2, 465));
     window.draw(pvaiText);
 }
 
 void Renderer::renderGameOver(sf::RenderWindow& window, const std::string& result) {
-    sf::RectangleShape overlay(sf::Vector2f(BOARD_SIZE, BOARD_SIZE));
-    overlay.setFillColor(sf::Color(0, 0, 0, 150));
-    window.draw(overlay);
+    window.clear(sf::Color(40, 40, 40));
     
-    sf::Text resultText(font);
-    resultText.setString(result);
-    resultText.setCharacterSize(40);
+    // Result text
+    sf::Text resultText(font, result, 50);
     resultText.setFillColor(sf::Color::White);
-    
-    // Center the text
-    sf::FloatRect textBounds = resultText.getLocalBounds();
-    resultText.setPosition(sf::Vector2f((BOARD_SIZE - textBounds.size.x) / 2, 300));
+    sf::FloatRect resultBounds = resultText.getLocalBounds();
+    resultText.setPosition(sf::Vector2f((800 - resultBounds.size.x) / 2, 250));
     window.draw(resultText);
     
-    sf::Text restartText(font);
-    restartText.setString("Press ESC for Main Menu");
-    restartText.setCharacterSize(25);
-    restartText.setFillColor(sf::Color::White);
+    // Return button
+    sf::RectangleShape button(sf::Vector2f(300, 60));
+    button.setPosition(sf::Vector2f(250, 450));
+    button.setFillColor(sf::Color(70, 130, 180));
+    window.draw(button);
     
-    sf::FloatRect restartBounds = restartText.getLocalBounds();
-    restartText.setPosition(sf::Vector2f((BOARD_SIZE - restartBounds.size.x) / 2, 400));
-    window.draw(restartText);
-}
-
-void Renderer::render(sf::RenderWindow& window, Game& game, int selectedRow, int selectedCol, bool pieceSelected) {
-    window.clear();
-    
-    GameMode mode = game.getMode();
-    
-    if(mode == GameMode::MainMenu) {
-        renderMainMenu(window);
-    } else if(mode == GameMode::PVP || mode == GameMode::PVAI || mode == GameMode::GameOver) {
-        renderBoard(window);
-        renderPieces(window, game.getBoard());
-        
-        if(pieceSelected) {
-            renderSelection(window, selectedRow, selectedCol);
-        }
-        
-        if(mode == GameMode::GameOver) {
-            renderGameOver(window, game.getGameResult());
-        }
-    }
-    
-    window.display();
+    sf::Text buttonText(font, "Return to Menu", 30);
+    buttonText.setFillColor(sf::Color::White);
+    sf::FloatRect buttonBounds = buttonText.getLocalBounds();
+    buttonText.setPosition(sf::Vector2f(250 + (300 - buttonBounds.size.x) / 2, 465));
+    window.draw(buttonText);
 }

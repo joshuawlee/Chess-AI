@@ -2,30 +2,31 @@
 #define RENDERER_H
 
 #include <SFML/Graphics.hpp>
-#include "Board.h"
-#include "Game.h"
 #include <map>
 #include <string>
+#include "Board.h"
 
 class Renderer {
 public:
     Renderer();
-    ~Renderer();
+    
     bool loadAssets();
-    void render(sf::RenderWindow& window, Game& game, int selectedRow, int selectedCol, bool pieceSelected);
-    void renderBoard(sf::RenderWindow& window);
-    void renderPieces(sf::RenderWindow& window, const Board& board);
-    void renderSelection(sf::RenderWindow& window, int row, int col);
+    void renderGame(sf::RenderWindow& window, const Board& board,
+                    int selectedRow, int selectedCol, bool pieceSelected);
     void renderMainMenu(sf::RenderWindow& window);
     void renderGameOver(sf::RenderWindow& window, const std::string& result);
-
+    
     static const int TILE_SIZE = 100;
-    static const int BOARD_SIZE = 800;
-
+    
 private:
     std::map<std::string, sf::Texture> textures;
     sf::Font font;
-    std::string getPieceKey(PieceType type, PieceColor color);
+    
+    void drawBoard(sf::RenderWindow& window);
+    void drawPieces(sf::RenderWindow& window, const Board& board);
+    void drawSelection(sf::RenderWindow& window, int row, int col);
+    
+    std::string pieceKey(PieceType type, PieceColor color);
 };
 
-#endif
+#endif // RENDERER_H

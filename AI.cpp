@@ -1,9 +1,10 @@
 #include "AI.h"
+#include <limits>
 
-AI::AI(int depth) : depth(depth) {}
+AI::AI() {}
 
-int AI::pieceValue(PieceType type) {
-    switch(type) {
+int AI::getPieceValue(PieceType type) {
+    switch (type) {
         case PieceType::Pawn: return 100;
         case PieceType::Knight: return 300;
         case PieceType::Bishop: return 300;
@@ -17,16 +18,17 @@ int AI::pieceValue(PieceType type) {
 int AI::evaluateBoard(const Board& board) {
     int score = 0;
     
-    for(int row = 0; row < 8; row++) {
-        for(int col = 0; col < 8; col++) {
-            Piece piece = board.squares[row][col];
-            if(piece.type != PieceType::None) {
-                int value = pieceValue(piece.type);
-                if(piece.color == PieceColor::White) {
-                    score += value;
-                } else {
-                    score -= value;
-                }
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            Piece piece = board.squares[r][c];
+            if (piece.isEmpty()) continue;
+            
+            int value = getPieceValue(piece.type);
+            
+            if (piece.color == PieceColor::White) {
+                score += value;
+            } else {
+                score -= value;
             }
         }
     }
@@ -34,124 +36,80 @@ int AI::evaluateBoard(const Board& board) {
     return score;
 }
 
-int AI::minimax(Board& board, int depth, int alpha, int beta, bool maximizingPlayer) {
-    if(depth == 0 || board.isCheckmate() || board.isStalemate()) {
+int AI::minimax(Board& board, int depth, int alpha, int beta, bool maximizing) {
+    if (depth == 0) {
         return evaluateBoard(board);
     }
-
-    std::vector<Move> legalMoves = board.generateLegalMoves();
-
-    if(maximizingPlayer) {
+    
+    std::vector<Move> moves = board.generateLegalMoves();
+    
+    if (moves.empty()) {
+        PieceColor currentColor = board.whiteToMove ? PieceColor::White : PieceColor::Black;
+        if (board.inCheck(currentColor)) {
+            // Checkmate
+            return maximizing ? -100000 : 100000;
+        } else {
+            // Stalemate
+            return 0;
+        }
+    }
+    
+    if (maximizing) {
         int maxEval = std::numeric_limits<int>::min();
-        for(const Move& move : legalMoves) {
-            // Save state
-            bool savedWhiteKingMoved = board.whiteKingMoved;
-            bool savedBlackKingMoved = board.blackKingMoved;
-            bool savedWhiteRookKMoved = board.whiteRookKingsideMoved;
-            bool savedWhiteRookQMoved = board.whiteRookQueensideMoved;
-            bool savedBlackRookKMoved = board.blackRookKingsideMoved;
-            bool savedBlackRookQMoved = board.blackRookQueensideMoved;
-            int savedEnPassantCol = board.enPassantCol;
-            int savedEnPassantRow = board.enPassantRow;
-
+        for (const Move& move : moves) {
             board.makeMove(move);
             int eval = minimax(board, depth - 1, alpha, beta, false);
             board.undoMove(move);
-
-            // Restore state
-            board.whiteKingMoved = savedWhiteKingMoved;
-            board.blackKingMoved = savedBlackKingMoved;
-            board.whiteRookKingsideMoved = savedWhiteRookKMoved;
-            board.whiteRookQueensideMoved = savedWhiteRookQMoved;
-            board.blackRookKingsideMoved = savedBlackRookKMoved;
-            board.blackRookQueensideMoved = savedBlackRookQMoved;
-            board.enPassantCol = savedEnPassantCol;
-            board.enPassantRow = savedEnPassantRow;
-
+            
             maxEval = std::max(maxEval, eval);
             alpha = std::max(alpha, eval);
-            if(beta <= alpha) {
-                break;
+            if (beta <= alpha) {
+                break; // Beta cutoff
             }
         }
         return maxEval;
     } else {
         int minEval = std::numeric_limits<int>::max();
-        for(const Move& move : legalMoves) {
-            // Save state
-            bool savedWhiteKingMoved = board.whiteKingMoved;
-            bool savedBlackKingMoved = board.blackKingMoved;
-            bool savedWhiteRookKMoved = board.whiteRookKingsideMoved;
-            bool savedWhiteRookQMoved = board.whiteRookQueensideMoved;
-            bool savedBlackRookKMoved = board.blackRookKingsideMoved;
-            bool savedBlackRookQMoved = board.blackRookQueensideMoved;
-            int savedEnPassantCol = board.enPassantCol;
-            int savedEnPassantRow = board.enPassantRow;
-
+        for (const Move& move : moves) {
             board.makeMove(move);
             int eval = minimax(board, depth - 1, alpha, beta, true);
             board.undoMove(move);
-
-            // Restore state
-            board.whiteKingMoved = savedWhiteKingMoved;
-            board.blackKingMoved = savedBlackKingMoved;
-            board.whiteRookKingsideMoved = savedWhiteRookKMoved;
-            board.whiteRookQueensideMoved = savedWhiteRookQMoved;
-            board.blackRookKingsideMoved = savedBlackRookKMoved;
-            board.blackRookQueensideMoved = savedBlackRookQMoved;
-            board.enPassantCol = savedEnPassantCol;
-            board.enPassantRow = savedEnPassantRow;
-
+            
             minEval = std::min(minEval, eval);
             beta = std::min(beta, eval);
-            if(beta <= alpha) {
-                break;
+            if (beta <= alpha) {
+                break; // Alpha cutoff
             }
         }
         return minEval;
     }
 }
 
-Move AI::getBestMove(Board& board) {
-    std::vector<Move> legalMoves = board.generateLegalMoves();
-    if(legalMoves.empty()) {
+Move AI::getBestMove(Board& board, int depth) {
+    std::vector<Move> moves = board.generateLegalMoves();
+    
+    if (moves.empty()) {
         return Move();
     }
-
-    Move bestMove = legalMoves[0];
-    int bestScore = std::numeric_limits<int>::min();
-
-    for(const Move& move : legalMoves) {
-        // Save state
-        bool savedWhiteKingMoved = board.whiteKingMoved;
-        bool savedBlackKingMoved = board.blackKingMoved;
-        bool savedWhiteRookKMoved = board.whiteRookKingsideMoved;
-        bool savedWhiteRookQMoved = board.whiteRookQueensideMoved;
-        bool savedBlackRookKMoved = board.blackRookKingsideMoved;
-        bool savedBlackRookQMoved = board.blackRookQueensideMoved;
-        int savedEnPassantCol = board.enPassantCol;
-        int savedEnPassantRow = board.enPassantRow;
-
+    
+    Move bestMove = moves[0];
+    int bestScore = std::numeric_limits<int>::max();
+    
+    int alpha = std::numeric_limits<int>::min();
+    int beta = std::numeric_limits<int>::max();
+    
+    for (const Move& move : moves) {
         board.makeMove(move);
-        int score = minimax(board, depth - 1, std::numeric_limits<int>::min(), 
-                           std::numeric_limits<int>::max(), true);
+        int score = minimax(board, depth - 1, alpha, beta, true);
         board.undoMove(move);
-
-        // Restore state
-        board.whiteKingMoved = savedWhiteKingMoved;
-        board.blackKingMoved = savedBlackKingMoved;
-        board.whiteRookKingsideMoved = savedWhiteRookKMoved;
-        board.whiteRookQueensideMoved = savedWhiteRookQMoved;
-        board.blackRookKingsideMoved = savedBlackRookKMoved;
-        board.blackRookQueensideMoved = savedBlackRookQMoved;
-        board.enPassantCol = savedEnPassantCol;
-        board.enPassantRow = savedEnPassantRow;
-
-        if(score > bestScore) {
+        
+        if (score < bestScore) {
             bestScore = score;
             bestMove = move;
         }
+        
+        beta = std::min(beta, score);
     }
-
+    
     return bestMove;
 }

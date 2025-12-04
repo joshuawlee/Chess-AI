@@ -4,22 +4,22 @@
 #include "Piece.h"
 
 struct Move {
-    int startRow;
-    int startCol;
-    int endRow;
-    int endCol;
-    Piece capturedPiece;
+    int startRow, startCol;
+    int endRow, endCol;
+    
     Piece movedPiece;
-    bool isPromotion;
-    PieceType promotionType;
-    bool isCastle;
-    bool isEnPassant;
-
-    Move() : startRow(0), startCol(0), endRow(0), endCol(0),
-             capturedPiece({PieceType::None, PieceColor::NoColor}),
-             movedPiece({PieceType::None, PieceColor::NoColor}),
-             isPromotion(false), promotionType(PieceType::Queen),
-             isCastle(false), isEnPassant(false) {}
+    Piece capturedPiece;
+    
+    bool isPromotion = false;
+    PieceType promotionType = PieceType::Queen;
+    
+    bool isCastle = false;
+    bool isEnPassant = false;
+    
+    Move() : startRow(0), startCol(0), endRow(0), endCol(0) {}
+    
+    Move(int sr, int sc, int er, int ec) 
+        : startRow(sr), startCol(sc), endRow(er), endCol(ec) {}
 };
 
-#endif
+#endif // MOVE_H
