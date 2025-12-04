@@ -6,7 +6,7 @@
 #include "AI.h"
 #include "Renderer.h"
 
-enum class GameMode { MainMenu, PVP, PVAI, GameOver };
+enum class GameMode { MainMenu, PVP, PVAI, GameOver, Paused };
 
 class Game {
 public:

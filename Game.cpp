@@ -1,7 +1,9 @@
 #include "Game.h"
+#include <iostream> // For debugging
 
 Game::Game() {
     mode = GameMode::MainMenu;
+    previousMode = GameMode::MainMenu;
     gameOver = false;
     selectedRow = -1;
     selectedCol = -1;
@@ -32,6 +34,43 @@ void Game::handleInput(sf::RenderWindow& window) {
             window.close();
         }
         
+        // Handle ESC key to pause/unpause - DEBUGGING VERSION
+        if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+            std::cout << "Key pressed detected! Code: " << static_cast<int>(keyPressed->code) << std::endl;
+            std::cout << "Escape code: " << static_cast<int>(sf::Keyboard::Key::Escape) << std::endl;
+            
+            if (keyPressed->code == sf::Keyboard::Key::Escape) {
+                std::cout << "ESC detected! Current mode: " << static_cast<int>(mode) << std::endl;
+                if (mode == GameMode::PVP || mode == GameMode::PVAI) {
+                    // Pause the game
+                    std::cout << "Pausing game..." << std::endl;
+                    previousMode = mode;
+                    mode = GameMode::Paused;
+                } else if (mode == GameMode::Paused) {
+                    // Unpause the game
+                    std::cout << "Unpausing game..." << std::endl;
+                    mode = previousMode;
+                }
+            }
+        }
+        
+        // Alternative: Try KeyReleased instead of KeyPressed
+        if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>()) {
+            std::cout << "Key released detected! Code: " << static_cast<int>(keyReleased->code) << std::endl;
+            
+            if (keyReleased->code == sf::Keyboard::Key::Escape) {
+                std::cout << "ESC released! Current mode: " << static_cast<int>(mode) << std::endl;
+                if (mode == GameMode::PVP || mode == GameMode::PVAI) {
+                    std::cout << "Pausing game (on release)..." << std::endl;
+                    previousMode = mode;
+                    mode = GameMode::Paused;
+                } else if (mode == GameMode::Paused) {
+                    std::cout << "Unpausing game (on release)..." << std::endl;
+                    mode = previousMode;
+                }
+            }
+        }
+        
         // SFML 3: Check for MouseButtonPressed event
         if (const auto* mouseButton = event->getIf<sf::Event::MouseButtonPressed>()) {
             int mouseX = mouseButton->position.x;
@@ -45,6 +84,17 @@ void Game::handleInput(sf::RenderWindow& window) {
                 // Check PVAI button (250, 450, 300x60)
                 else if (mouseX >= 250 && mouseX <= 550 && mouseY >= 450 && mouseY <= 510) {
                     selectGameMode(GameMode::PVAI);
+                }
+            }
+            else if (mode == GameMode::Paused) {
+                // Check Resume button (250, 300, 300x60)
+                if (mouseX >= 250 && mouseX <= 550 && mouseY >= 300 && mouseY <= 360) {
+                    mode = previousMode;
+                }
+                // Check Return to Menu button (250, 400, 300x60)
+                else if (mouseX >= 250 && mouseX <= 550 && mouseY >= 400 && mouseY <= 460) {
+                    mode = GameMode::MainMenu;
+                    resetGame();
                 }
             }
             else if (mode == GameMode::GameOver) {
@@ -66,6 +116,11 @@ void Game::handleInput(sf::RenderWindow& window) {
 }
 
 void Game::update() {
+    // Don't update game state when paused
+    if (mode == GameMode::Paused) {
+        return;
+    }
+    
     if (mode == GameMode::PVAI && !gameOver && !board.whiteToMove) {
         handleAITurn();
     }
@@ -80,6 +135,12 @@ void Game::render(sf::RenderWindow& window) {
     
     if (mode == GameMode::MainMenu) {
         renderer.renderMainMenu(window);
+    }
+    else if (mode == GameMode::Paused) {
+        // Draw the game board in background
+        renderer.renderGame(window, board, selectedRow, selectedCol, pieceSelected);
+        // Draw pause menu overlay
+        renderer.renderPauseMenu(window);
     }
     else if (mode == GameMode::GameOver) {
         renderer.renderGameOver(window, resultText);

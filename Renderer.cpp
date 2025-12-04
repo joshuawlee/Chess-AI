@@ -187,3 +187,49 @@ void Renderer::renderGameOver(sf::RenderWindow& window, const std::string& resul
     buttonText.setPosition(sf::Vector2f(250 + (300 - buttonBounds.size.x) / 2, 465));
     window.draw(buttonText);
 }
+
+void Renderer::renderPauseMenu(sf::RenderWindow& window) {
+    // Semi-transparent dark overlay
+    sf::RectangleShape overlay(sf::Vector2f(800, 800));
+    overlay.setPosition(sf::Vector2f(0, 0));
+    overlay.setFillColor(sf::Color(0, 0, 0, 180)); // Black with transparency
+    window.draw(overlay);
+    
+    // Pause title
+    sf::Text title(font, "PAUSED", 60);
+    title.setFillColor(sf::Color::White);
+    sf::FloatRect titleBounds = title.getLocalBounds();
+    title.setPosition(sf::Vector2f((800 - titleBounds.size.x) / 2, 150));
+    window.draw(title);
+    
+    // Resume button
+    sf::RectangleShape resumeButton(sf::Vector2f(300, 60));
+    resumeButton.setPosition(sf::Vector2f(250, 300));
+    resumeButton.setFillColor(sf::Color(70, 130, 180));
+    window.draw(resumeButton);
+    
+    sf::Text resumeText(font, "Resume Game", 30);
+    resumeText.setFillColor(sf::Color::White);
+    sf::FloatRect resumeBounds = resumeText.getLocalBounds();
+    resumeText.setPosition(sf::Vector2f(250 + (300 - resumeBounds.size.x) / 2, 315));
+    window.draw(resumeText);
+    
+    // Return to Menu button
+    sf::RectangleShape menuButton(sf::Vector2f(300, 60));
+    menuButton.setPosition(sf::Vector2f(250, 400));
+    menuButton.setFillColor(sf::Color(180, 70, 70)); // Reddish color
+    window.draw(menuButton);
+    
+    sf::Text menuText(font, "Return to Menu", 30);
+    menuText.setFillColor(sf::Color::White);
+    sf::FloatRect menuBounds = menuText.getLocalBounds();
+    menuText.setPosition(sf::Vector2f(250 + (300 - menuBounds.size.x) / 2, 415));
+    window.draw(menuText);
+    
+    // ESC hint
+    sf::Text escHint(font, "Press ESC to resume", 20);
+    escHint.setFillColor(sf::Color(200, 200, 200));
+    sf::FloatRect escBounds = escHint.getLocalBounds();
+    escHint.setPosition(sf::Vector2f((800 - escBounds.size.x) / 2, 550));
+    window.draw(escHint);
+}
