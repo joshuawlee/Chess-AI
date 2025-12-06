@@ -459,53 +459,6 @@ Have fun playing chess! Whether you're practicing against the AI or challenging 
 
 ---
 
-## 🐛 Troubleshooting
-
-### "Failed to load font" Error
-**Problem:** Font file not found
-
-**Solutions:**
-1. Make sure `assets/font.ttf` exists
-2. Download font:
-   ```bash
-   curl -L -o assets/font.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/static/Roboto-Regular.ttf"
-   ```
-3. Or use system font (code already includes fallback to macOS system fonts)
-
-### "Failed to load texture" Error
-**Problem:** Chess piece images not found
-
-**Solution:**
-- Ensure all 12 PNG files are in `assets/` folder
-- Check file names match exactly (case-sensitive):
-  - `white_pawn.png` not `White_Pawn.png`
-  - `black_knight.png` not `black_night.png`
-
-### Build Errors
-**Problem:** CMake can't find SFML
-
-**Solution:**
-```bash
-# macOS
-brew install sfml
-
-# Linux
-sudo apt-get install libsfml-dev
-
-# Verify installation
-pkg-config --modversion sfml-all
-```
-
-### Game Window Doesn't Appear
-**Problem:** Window opens and closes immediately
-
-**Solution:**
-- Check console for error messages
-- Verify all assets loaded correctly
-- Run from `build/` directory: `./ChessGame`
-
----
-
 ## ⚙️ Configuration
 
 ### Adjusting AI Difficulty
